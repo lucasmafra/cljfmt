@@ -367,8 +367,7 @@
   [zloc]
   (u/remove-left-while zloc (every-pred ws/whitespace? (comp not ws/linebreak?))))
 
-(defn column-length [zloc]
-  ((comp node/length z/node) zloc))
+(def column-length (comp node/length z/node))
 
 (defn- merge-column [column-length i columns]
   (let [[part1 part2] (split-at i columns)]
@@ -391,26 +390,28 @@
 
 (defn- my-align-map [zloc]
   (let [columns (count-columns (zip/down zloc))]
-    (loop [current    (zip/down zloc)
-           i          0]
-    (cond
-      (line-break? current) (recur (z/next current) 0)
-      :else                 (let [length              (column-length current)
-                                  missing-whitespaces (inc (- (nth columns i) length))
-                                  aligned             (cond-> current
-                                                        (zero? i)
-                                                        remove-preceding-space
+    (loop [current (zip/down zloc)
+           i       0]
+      (cond
+        (line-break? current) (recur (z/next current) 0)
+        :else (let [length              (column-length current)
+                    missing-whitespaces (if (= (inc i) (count columns))
+                                          1
+                                          (inc (- (nth columns i) length)))
+                    aligned             (cond-> current
+                                          (zero? i)
+                                          remove-preceding-space
 
-                                                        true
-                                                        remove-trailing-space
+                                          true
+                                          remove-trailing-space
 
-                                                        (not (z/rightmost? current))
-                                                        (z/append-space missing-whitespaces))]
+                                          (not (z/rightmost? current))
+                                          (z/append-space missing-whitespaces))]
 
-                              (if (nil? (next-element aligned))
-                                (let [result (z/up aligned)]
-                                  result)
-                                (recur (next-element aligned) (inc i))))))))
+                (if (nil? (next-element aligned))
+                  (let [result (z/up aligned)]
+                    result)
+                  (recur (next-element aligned) (inc i))))))))
 
 (defn- align-map [zloc]
   (let [key-list       (-> zloc z/sexpr keys)
@@ -425,8 +426,8 @@
 
 (defn- align-elements [zloc]
   (if (z/map? zloc)
-      (-> zloc my-align-map)
-      (-> zloc align-binding add-binding-newlines)))
+    (-> zloc my-align-map)
+    (-> zloc align-binding add-binding-newlines)))
 
 (def ^:private binding-keywords
   #{"doseq" "let" "loop" "binding" "with-open" "go-loop" "if-let" "when-some"
