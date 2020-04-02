@@ -1,27 +1,34 @@
 (ns cljfmt.core
-  #?@(:clj
-       [(:require
-         [clojure.java.io :as io]
-         [clojure.zip :as zip]
-         [rewrite-clj.node :as n]
-         [rewrite-clj.parser :as p]
-         [rewrite-clj.zip :as z
-          :refer [append-space edn skip whitespace-or-comment?]]
-         [rewrite-clj.zip.utils :as u])
-        (:import java.util.regex.Pattern)]
-      :cljs
-       [(:require
-         [cljs.reader :as reader]
-         [clojure.zip :as zip]
-         [clojure.string :as str]
-         [rewrite-clj.node :as n]
-         [rewrite-clj.parser :as p]
-         [rewrite-clj.zip :as z]
-         [rewrite-clj.zip.base :as zb :refer [edn]]
-         [rewrite-clj.zip.utils :as u]
-         [rewrite-clj.zip.whitespace :as zw
-          :refer [append-space skip whitespace-or-comment?]])
-        (:require-macros [cljfmt.core :refer [read-resource]])]))
+  #?@
+   (:clj
+    [(:require
+      [clojure.java.io :as io]
+      [clojure.zip :as zip]
+      [rewrite-clj.node :as n]
+      [rewrite-clj.parser :as p]
+      [rewrite-clj.node.protocols :as node]
+      [rewrite-clj.zip
+       :as
+       z
+       :refer
+       [append-space edn skip whitespace-or-comment?]]
+      [rewrite-clj.zip.utils :as u]
+      [rewrite-clj.zip.whitespace :as ws])
+     (:import java.util.regex.Pattern)]
+    :cljs
+    [(:require
+      [clojure.string :as str]
+      [clojure.zip :as zip]
+      [rewrite-clj.node :as n]
+      [rewrite-clj.parser :as p]
+      [rewrite-clj.zip :as z]
+      [rewrite-clj.zip.base :as zb :refer [edn]]
+      [rewrite-clj.zip.whitespace
+       :as
+       zw
+       :refer
+       [append-space skip whitespace-or-comment?]])
+     (:require-macros [cljfmt.core :refer [read-resource]])]))
 
 #?(:clj (def read-resource* (comp read-string slurp io/resource)))
 #?(:clj (defmacro read-resource [path] `'~(read-resource* path)))
@@ -350,6 +357,61 @@
         zloc       (*remove-right-while zloc zwhitespace?)]
     (zip/insert-right zloc (whitespace (inc width)))))
 
+(defn- remove-trailing-space
+  "Remove all whitespace following a given node."
+  [zloc]
+  (u/remove-right-while zloc (every-pred ws/whitespace? (comp not ws/linebreak?))))
+
+(defn- remove-preceding-space
+  "Remove all whitespace preceding a given node."
+  [zloc]
+  (u/remove-left-while zloc (every-pred ws/whitespace? (comp not ws/linebreak?))))
+
+(defn column-length [zloc]
+  ((comp node/length z/node) zloc))
+
+(defn- merge-column [column-length i columns]
+  (let [[part1 part2] (split-at i columns)]
+    (vec (concat part1 [(max column-length (or (first part2) 0))] (rest part2)))))
+
+(def next-element (comp skip-whitespace zip/right))
+(def prev-element (comp skip-whitespace zip/left))
+
+(defn- count-columns [data]
+  (loop [current data
+         i       0
+         columns []]
+    (cond
+      (nil? current)        columns
+      (line-break? current) (recur (next-element current) 0 columns)
+      :else                 (recur (next-element current) (inc i) (merge-column
+                                                                   (column-length current)
+                                                                   i
+                                                                   columns)))))
+
+(defn- my-align-map [zloc]
+  (let [columns (count-columns (zip/down zloc))]
+    (loop [current    (zip/down zloc)
+           i          0]
+    (cond
+      (line-break? current) (recur (z/next current) 0)
+      :else                 (let [length              (column-length current)
+                                  missing-whitespaces (inc (- (nth columns i) length))
+                                  aligned             (cond-> current
+                                                        (zero? i)
+                                                        remove-preceding-space
+
+                                                        true
+                                                        remove-trailing-space
+
+                                                        (not (z/rightmost? current))
+                                                        (z/append-space missing-whitespaces))]
+
+                              (if (nil? (next-element aligned))
+                                (let [result (z/up aligned)]
+                                  result)
+                                (recur (next-element aligned) (inc i))))))))
+
 (defn- align-map [zloc]
   (let [key-list       (-> zloc z/sexpr keys)
         max-key-length (apply max (map #(-> % str count) key-list))]
@@ -363,7 +425,7 @@
 
 (defn- align-elements [zloc]
   (if (z/map? zloc)
-      (-> zloc align-map add-map-newlines)
+      (-> zloc my-align-map)
       (-> zloc align-binding add-binding-newlines)))
 
 (def ^:private binding-keywords

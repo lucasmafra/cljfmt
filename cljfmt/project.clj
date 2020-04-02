@@ -1,10 +1,10 @@
-(defproject lucasmafra/cljfmt "0.5.3"
+(defproject lucasmafra/cljfmt "0.5.4"
   :description "A library for formatting Clojure code"
   :url "https://github.com/weavejester/cljfmt"
   :scm {:dir ".."}
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.7.0"]
+  :dependencies [[org.clojure/clojure "1.8.0"]
                  [org.clojure/tools.reader "1.0.0-alpha4"]
                  [rewrite-clj "0.4.12"]
                  [rewrite-cljs "0.4.1"]]

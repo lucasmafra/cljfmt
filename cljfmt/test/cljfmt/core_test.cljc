@@ -184,24 +184,30 @@
        "(let [foo    1 ;; test 1\n      barbaz 2])")))
 
   (testing "map alignment"
-    (is (= (reformat-string "{:foo 1\n:barbaz 2}")
-           "{:foo    1\n :barbaz 2}"))
-    (is (= (reformat-string "{:foo\n  1\n:baz 2}")
-           "{:foo 1\n :baz 2}"))
-    (is (= (reformat-string "{:bar\n {:qux 1\n  :quux 2}}")
-           "{:bar {:qux  1\n       :quux 2}}"))
-    (is (= (reformat-string "{:foo 1\n (baz quux) 2}")
-           "{:foo       1\n (baz quux) 2}"))
-    (is (= (reformat-string "{:foo (bar)\n :quux (baz)}")
-           "{:foo  (bar)\n :quux (baz)}"))
-    (is (= (reformat-string "[{:foo 1 :bar 2}\n{:foo 1 :bar 2}]")
-           "[{:foo 1\n  :bar 2}\n {:foo 1\n  :bar 2}]")))
+    (is (= "{:foo    1\n :barbaz 2}"
+           (reformat-string "{:foo 1\n:barbaz 2}")))
+
+    (is (= "{:foo\n 1\n :baz 2}"
+           (reformat-string "{:foo\n  1\n :baz 2}")))
+    
+    (is (= "{:bar\n {:qux  1\n  :quux 2}}"
+           (reformat-string "{:bar\n {:qux 1\n  :quux 2}}")))
+
+    (is (= "{:foo       1\n (baz quux) 2}"
+           (reformat-string "{:foo 1\n (baz quux) 2}")))
+
+    (is (= "{:foo  (bar)\n :quux (baz)}"
+           (reformat-string "{:foo (bar)\n :quux (baz)}")))
+
+    (is (= "[{:foo 1 :bar 2}\n {:foo 1 :bar 2}]"
+           (reformat-string "[{:foo 1 :bar 2}\n{:foo 1 :bar 2}]"))))
 
   (testing "map alignment preserves comments"
-    (is (= (reformat-string "{:foo 1 ;; test 1\n:barbaz 2}")
-           "{:foo    1 ;; test 1\n :barbaz 2}"))
-    (is (= (reformat-string "{:foo 1 ;; test 1\n:barbaz 2\n:fuz 1}")
-           "{:foo    1 ;; test 1\n :barbaz 2\n :fuz    1}"))))
+    (is (= "{:foo    1 ;; test 1\n :barbaz 2}"
+           (reformat-string "{:foo 1 ;; test 1\n:barbaz 2}")))
+
+    (is (= "{:foo    1 ;; test 1\n :barbaz 2\n :fuz    1}"
+           (reformat-string "{:foo 1 ;; test 1\n:barbaz 2\n:fuz 1}")))))
 
 (deftest test-trailing-whitespace
   (testing "trailing-whitespace"
@@ -221,7 +227,7 @@
            "( foo bar )\n"))
     (is (= (reformat-string
             "( foo bar )   \n( foo baz )\n" {:remove-surrounding-whitespace? false})
-            "( foo bar )\n( foo baz )\n"))))
+           "( foo bar )\n( foo baz )\n"))))
 
 (deftest test-options
   (is (= (reformat-string "(foo)\n\n\n(bar)" {:remove-consecutive-blank-lines? false})
